@@ -2,7 +2,6 @@ package org.usac.bots.jbot.messagehandlers;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.usac.bots.jbot.WebexTeamsController;
 import org.usac.bots.jbot.annotations.*;
 import org.usac.bots.jbot.entities.ChatMessage;
 import org.usac.bots.jbot.entities.HandlerResult;
@@ -11,6 +10,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.regex.Pattern;
+
+import static org.usac.bots.jbot.util.StringUtils.*;
 
 public abstract class LogGrootMessageHandler {
 
@@ -189,34 +190,34 @@ public abstract class LogGrootMessageHandler {
 
 
             if (startsWithPhraseAnnotation != null
-                    && WebexTeamsController.beginsWith(message.getText(), startsWithPhraseAnnotation.phrase())
-                    && (excludesPhraseAnnotation == null || !WebexTeamsController.heard(message, excludesPhraseAnnotation.phrase()))
+                    && beginsWith(message.getText(), startsWithPhraseAnnotation.phrase())
+                    && (excludesPhraseAnnotation == null || !heard(message, excludesPhraseAnnotation.phrase()))
             ) {
-                String text = WebexTeamsController.removeTermsFromStart(message.getText(), startsWithPhraseAnnotation.phrase());
+                String text = removeTermsFromStart(message.getText(), startsWithPhraseAnnotation.phrase());
                 message.setProcessedText(text);
                 result = (HandlerResult) m.invoke(this, message, triggeredBy);
             }
             // Process containsDateReference
             if (containsDateReferenceAnnotation != null
-                    && WebexTeamsController.getDateGroups(message).size() > 0
+                    && getDateGroups(message).size() > 0
             ) {
                 message.setProcessedText(message.getText());
-                result = (HandlerResult) m.invoke(this, message, triggeredBy, WebexTeamsController.getDateGroups(message));
+                result = (HandlerResult) m.invoke(this, message, triggeredBy, getDateGroups(message));
                 continue;
             }
             // Process contains
             if (containsPhraseAnnotation != null
-                    && WebexTeamsController.heard(message, containsPhraseAnnotation.phrase())
-                    && (excludesPhraseAnnotation == null || !WebexTeamsController.heard(message, excludesPhraseAnnotation.phrase()))
+                    && heard(message, containsPhraseAnnotation.phrase())
+                    && (excludesPhraseAnnotation == null || !heard(message, excludesPhraseAnnotation.phrase()))
             ) {
                 message.setProcessedText(message.getText());
                 result = (HandlerResult) m.invoke(this, message, triggeredBy);
                 continue;
             }
             // Process matchesRegex
-            if (matchesRegexAnnotation != null && WebexTeamsController.heardRegex(message, Pattern.compile(matchesRegexAnnotation.regex(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL))) {
+            if (matchesRegexAnnotation != null && heardRegex(message, Pattern.compile(matchesRegexAnnotation.regex(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL))) {
                 Pattern pattern = Pattern.compile(matchesRegexAnnotation.regex(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-                List<String> regexGroups = WebexTeamsController.getRegexGroups(message, pattern);
+                List<String> regexGroups = getRegexGroups(message, pattern);
 
                 result = (HandlerResult) m.invoke(this, message, triggeredBy, pattern, regexGroups);
                 continue;
@@ -233,7 +234,7 @@ public abstract class LogGrootMessageHandler {
     }
 
     public HandlerResult catchAll(ChatMessage message, LogGrootMessageHandler triggeredBy, String conversationTheme) {
-        return HandlerResult.failure().reply(messageHandlers.getWebexTeamsController().getRandomReply("idk"));
+        return HandlerResult.failure().reply(getRandomReply("idk", messageHandlers.getWebexTeamsController().getReplies()));
     }
 
     /**
@@ -259,13 +260,13 @@ public abstract class LogGrootMessageHandler {
             MatchesRegex matchesRegexAnnotation = m.getAnnotation(MatchesRegex.class);
             ExcludesPhrase excludesPhraseAnnotation = m.getAnnotation(ExcludesPhrase.class);
 
-            if ((startsWithPhraseAnnotation != null && WebexTeamsController.beginsWith(message.getText(), startsWithPhraseAnnotation.phrase()) && (excludesPhraseAnnotation == null || !WebexTeamsController.heard(message, excludesPhraseAnnotation.phrase())))
+            if ((startsWithPhraseAnnotation != null && beginsWith(message.getText(), startsWithPhraseAnnotation.phrase()) && (excludesPhraseAnnotation == null || !heard(message, excludesPhraseAnnotation.phrase())))
                     ||
-                    (containsPhraseAnnotation != null && WebexTeamsController.heard(message, containsPhraseAnnotation.phrase()) && (excludesPhraseAnnotation == null || !WebexTeamsController.heard(message, excludesPhraseAnnotation.phrase())))
+                    (containsPhraseAnnotation != null && heard(message, containsPhraseAnnotation.phrase()) && (excludesPhraseAnnotation == null || !heard(message, excludesPhraseAnnotation.phrase())))
                     ||
-                    (matchesRegexAnnotation != null && WebexTeamsController.heardRegex(message, Pattern.compile(matchesRegexAnnotation.regex(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL)))
+                    (matchesRegexAnnotation != null && heardRegex(message, Pattern.compile(matchesRegexAnnotation.regex(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL)))
                     ||
-                    (containsDateReferenceAnnotation != null && WebexTeamsController.getDateGroups(message).size() > 0)
+                    (containsDateReferenceAnnotation != null && getDateGroups(message).size() > 0)
             ) {
                 return aPrecendece.activationScore();
             }

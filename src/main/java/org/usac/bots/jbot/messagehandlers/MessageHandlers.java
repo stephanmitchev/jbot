@@ -127,15 +127,15 @@ public class MessageHandlers {
             result = handler.handleChatMessage(message, triggeredBy, theme);
         } catch (InvocationTargetException e) {
             Room exceptionsRoom = webexTeamsController.createRoom("LogGroot Exceptions", Arrays.asList("Stephan.Mitchev@usac.org"));
-            webexTeamsController.replyTo(exceptionsRoom, "I heard `" + message.getText() + "` and an invocation target exception occurred:  \n```  \n" + e.getTargetException().getMessage() + "  \n```");
+            webexTeamsController.groupMessage(exceptionsRoom.getId(), "I heard `" + message.getText() + "` and an invocation target exception occurred:  \n```  \n" + e.getTargetException().getMessage() + "  \n```");
         } catch (IllegalAccessException e) {
             Room exceptionsRoom = webexTeamsController.createRoom("LogGroot Exceptions", Arrays.asList("Stephan.Mitchev@usac.org"));
-            webexTeamsController.replyTo(exceptionsRoom, "I heard `" + message.getText() + "` and this is what happened:  \n```  \n" + e.getMessage() + "  \n```");
+            webexTeamsController.groupMessage(exceptionsRoom.getId(), "I heard `" + message.getText() + "` and this is what happened:  \n```  \n" + e.getMessage() + "  \n```");
         }
 
         if (result != null) {
             if (renderReply && (result.getReply() != null || result.getAttachment() != null)) {
-                webexTeamsController.replyToWithAttachment(message, result.getReply(), result.getAttachment(), true);
+                webexTeamsController.groupMessageWithAttachment(message.getRoomId(), result.getReply(), result.getAttachment(), true);
             }
         } else {
             result = HandlerResult.failure().reply("Congrats! You just discovered a bug! I notified the support team with all relevant data.");

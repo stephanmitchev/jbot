@@ -1,8 +1,6 @@
 package org.usac.bots.jbot;
 
 import com.ciscospark.*;
-import com.joestelmach.natty.DateGroup;
-import com.joestelmach.natty.Parser;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -19,10 +17,13 @@ import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.security.SecureRandom;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import static org.usac.bots.jbot.util.StringUtils.getRandomReply;
+import static org.usac.bots.jbot.util.StringUtils.removeTermsFromStart;
 
 @Component
 @ConfigurationProperties(prefix = "webexteams")
@@ -43,49 +44,18 @@ public class WebexTeamsController {
     }
 
     @PostConstruct
-    public void init() {
+    private void init() {
         spark = Spark.builder()
                 .baseUrl(URI.create("https://api.ciscospark.com/v1"))
                 .accessToken(accessToken)
                 .build();
     }
 
-    public String getRandomReply(String category) {
-        String result = null;
-        SecureRandom random = new SecureRandom();
-
-        if (replies.containsKey(category)) {
-            result = replies.get(category).get((int) Math.floor(random.nextDouble() * replies.get(category).size()));
-        }
-
-        return result != null ? result : "???";
-    }
-
-    public Message replyTo(ChatMessage message, String reply) {
-
-        return replyTo(message.getRoomId(), reply);
-    }
 
 
-    public Message replyTo(ChatMessage message, String reply, String... mentions) {
-
-        return replyTo(message.getRoomId(), reply, mentions);
-    }
-
-
-    public Message replyTo(Room room, String reply) {
-
-        return replyTo(room, reply, (String[]) null);
-    }
-
-    public Message replyTo(Room room, String reply, String... mentions) {
-
-        return replyTo(room.getId(), reply, mentions);
-    }
-
-    public Message replyTo(String roomId, String reply, String... mentions) {
+    public Message groupMessage(String roomId, String reply, String... mentions) {
         if (reply == null || reply.isEmpty()) {
-            reply = getRandomReply("idk");
+            reply = getRandomReply("idk", replies);
         }
 
         Message replyMessage = new Message();
@@ -100,13 +70,28 @@ public class WebexTeamsController {
         return replyMessage;
     }
 
-    public Message replyToWithAttachment(ChatMessage message, String reply, File file, boolean deleteOnSend) {
+    public Message directMessage(String email, String reply, String... mentions) {
+        if (reply == null || reply.isEmpty()) {
+            reply = getRandomReply("idk", replies);
+        }
+
         Message replyMessage = new Message();
-        replyMessage.setRoomId(message.getRoomId());
+
+        replyMessage.setToPersonEmail(email);
+        replyMessage.setMarkdown(reply);
+
+        spark.messages().post(replyMessage);
+
+        return replyMessage;
+    }
+
+    public Message groupMessageWithAttachment(String roomId, String reply, File file, boolean deleteOnSend) {
+        Message replyMessage = new Message();
+        replyMessage.setRoomId(roomId);
 
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
 
-        builder.addTextBody("roomId", message.getRoomId(), ContentType.TEXT_PLAIN);
+        builder.addTextBody("roomId", roomId, ContentType.TEXT_PLAIN);
         if (reply != null) {
             replyMessage.setMarkdown(reply);
             builder.addTextBody("markdown", reply, ContentType.TEXT_PLAIN);
@@ -199,178 +184,6 @@ public class WebexTeamsController {
 
     }
 
-    public static boolean beginsWith(String text, String... terms) {
-        boolean result = false;
-        if (text != null) {
-            String cleanMessage = text.toLowerCase();
-
-
-            for (String term : terms) {
-                result |= cleanMessage.startsWith(term.toLowerCase());
-            }
-        }
-
-        return result;
-    }
-
-    public static String getRegexGroup(ChatMessage message, Pattern pattern) {
-        String result = null;
-        if (message != null) {
-            String cleanMessage = message.getText().toLowerCase();
-
-            Matcher matcher = pattern.matcher(cleanMessage);
-
-            if (matcher.find()) {
-                result = matcher.group();
-            }
-        }
-
-        return result;
-    }
-
-    public static List<String> getRegexGroups(ChatMessage message, Pattern pattern) {
-        List<String> result = new ArrayList<>();
-        if (message != null) {
-            String cleanMessage = message.getText();//.toLowerCase();
-
-            Matcher matcher = pattern.matcher(cleanMessage);
-
-            if (matcher.find()) {
-                result.add(message.getText());
-                for (int i = 0; i < matcher.groupCount(); i++) {
-                    result.add(matcher.group(i + 1));
-                }
-            }
-        }
-
-        return result;
-    }
-
-    public static boolean heardRegex(ChatMessage message, Pattern pattern) {
-        boolean result = false;
-        if (message != null) {
-            String cleanMessage = message.getText();//.toLowerCase();
-
-            Matcher matcher = pattern.matcher(cleanMessage);
-
-            result = matcher.find();
-        }
-
-        return result;
-    }
-
-
-    public static String removeTermsFromStartRegex(String message, Pattern pattern) {
-        if (message != null) {
-            message = message.toLowerCase();
-
-            Matcher matcher = pattern.matcher(message);
-
-            message = matcher.replaceFirst("");
-        }
-
-        return message;
-    }
-
-
-    public static boolean heardAll(ChatMessage message, String... terms) {
-        boolean result = false;
-
-        if (message != null) {
-            String cleanMessage = message.getText().toLowerCase();
-
-
-            for (int i = 0; i < terms.length; i++) {
-                String term = terms[i];
-                if (i == 0) {
-                    result = cleanMessage.contains(term.toLowerCase());
-                } else {
-                    result &= cleanMessage.contains(term.toLowerCase());
-                }
-            }
-        }
-
-        return result;
-    }
-
-    public static String removeTermsFromStart(String message, String... terms) {
-        for (String term : terms) {
-            if (message != null) {
-                message = message.replaceAll("^(?i)" + Pattern.quote(term), "").trim();
-            }
-        }
-
-        return message;
-    }
-
-    public static String removeBeforeAndIncluding(String message, String needle) {
-        int start = message.toLowerCase().indexOf(needle.toLowerCase());
-        message = message.substring(start + needle.length()).trim();
-
-        return message;
-    }
-
-
-    public static List<DateGroup> getDateGroups(ChatMessage message) {
-        Parser parser = new Parser();
-        List<DateGroup> parsed = parser.parse(message.getText());
-        List<DateGroup> result = new ArrayList<>();
-        for (DateGroup group : parsed) {
-            if (group.getPosition() <= 10) {
-                result.add(group);
-            }
-        }
-
-        return result;
-    }
-
-
-    public static Message getMessage(Spark spark, Message message, String botId) {
-
-        if (!message.getRoomType().equals("direct")) {
-            if (message.getMentionedPeople() == null || !Arrays.asList(message.getMentionedPeople()).contains(botId)) {
-                return null;
-            }
-        }
-
-        Message result = null;
-        try {
-            result = spark.messages().path("/" + message.getId()).get();
-        } catch (SparkException e) {
-        }
-
-        return result;
-    }
-
-    public static Room getRoom(Spark spark, Message message) {
-
-        Room result = null;
-        try {
-            result = spark.rooms().path("/" + message.getRoomId()).get();
-        } catch (SparkException e) {
-        }
-
-        return result;
-    }
-
-    public static Person getFrom(Spark spark, Message message, String botId) {
-
-        if (!message.getRoomType().equals("direct")) {
-            if (message.getMentionedPeople() == null || !Arrays.asList(message.getMentionedPeople()).contains(botId)) {
-                return null;
-            }
-        }
-
-        Person result = null;
-        try {
-            result = spark.people().path("/" + message.getPersonId()).get();
-        } catch (SparkException e) {
-        }
-
-        return result;
-
-    }
-
     public Room createRoom(String roomName, List<String> userEmails) {
 
         final List<Room> roomList = new ArrayList<>();
@@ -414,17 +227,6 @@ public class WebexTeamsController {
 
     }
 
-    public static boolean heard(ChatMessage message, String... terms) {
-        boolean result = false;
-        String cleanMessage = message.getText().toLowerCase();
-
-        for (String term : terms) {
-            result |= cleanMessage.contains(term);
-        }
-
-        return result;
-    }
-
 
     public String getAccessToken() {
         return accessToken;
@@ -457,7 +259,6 @@ public class WebexTeamsController {
     public void setReplies(Map<String, List<String>> replies) {
         this.replies = replies;
     }
-
 
     public void delete(ChatMessage message) {
         spark.messages().path("/" + message.getId()).delete();
