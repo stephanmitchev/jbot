@@ -1,5 +1,6 @@
 package org.usac.bots.jbot.datasources;
 
+import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.apache.http.client.ResponseHandler;
@@ -38,11 +39,12 @@ public class NetworkDataSource extends LogGrootDataSource {
         return result;
     }
 
-    public Map<String, Object> wget(String url) {
+    public Map<String, Object> wget(String url, Header... headers) {
         final Map<String, Object> result = new HashMap<>();
         try {
 
             Request.Get(url)
+                    .setHeaders(headers)
                     .connectTimeout(1000)
                     .socketTimeout(1000)
                     .execute()
